@@ -1,0 +1,36 @@
+{
+  "name": "neuralatlasai_blogs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Content-first technical report static site generator for GitHub Pages",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node.exe build/build.js",
+    "dev": "tsc -p tsconfig.json && node.exe build/dev.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "serve": "npm run build && node.exe build/preview.js"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "katex": "^0.16.25",
+    "markdown-it": "^14.1.0",
+    "markdown-it-attrs": "^4.3.1",
+    "markdown-it-container": "^4.0.0",
+    "markdown-it-deflist": "^2.1.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-sub": "^2.0.0",
+    "markdown-it-sup": "^2.0.0",
+    "markdown-it-task-lists": "^2.1.1",
+    "markdown-it-texmath": "^1.0.0",
+    "shiki": "^3.12.2"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}
