@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Provide node.exe alias
+        run: |
+          mkdir -p "$RUNNER_TEMP/node-alias"
+          ln -sf "$(command -v node)" "$RUNNER_TEMP/node-alias/node.exe"
+          echo "$RUNNER_TEMP/node-alias" >> "$GITHUB_PATH"
+
       - name: Build site
         run: npm run build
 
