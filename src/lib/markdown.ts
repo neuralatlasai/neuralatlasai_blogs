@@ -645,6 +645,9 @@ function configureRenderer(markdown: MarkdownIt, highlighter: HighlighterGeneric
     const token = tokens[index];
     const info = token.info.trim();
     const requestedLanguage = info.split(/\s+/u)[0] || "text";
+    const fenceTitle = info.split(/\s+/u).slice(1).join(" ").trim();
+    const isAlgorithmFence = requestedLanguage === "algorithm";
+    const isPseudocodeFence = requestedLanguage === "pseudocode" || requestedLanguage === "pseudo";
     const isPlainTextFence = new Set(["text", "plaintext", "algorithm", "pseudocode", "pseudo"]).has(
       requestedLanguage
     );
@@ -661,6 +664,11 @@ function configureRenderer(markdown: MarkdownIt, highlighter: HighlighterGeneric
       isPlainTextFence
         ? token.content.replace(/\n[ \t]*\n+/gu, "\n").trimEnd()
         : token.content.trimEnd();
+    const plainFencePresentation = isAlgorithmFence
+      ? { kind: "algorithm" as const, label: "Algorithm" as const }
+      : isPseudocodeFence
+        ? { kind: "pseudocode" as const, label: "Pseudocode" as const }
+        : inferPlainFencePresentation(normalizedContent);
     const highlighted = highlighter.codeToHtml(normalizedContent, {
       lang: language,
       themes: {
@@ -669,14 +677,26 @@ function configureRenderer(markdown: MarkdownIt, highlighter: HighlighterGeneric
       }
     });
     const header = isPlainTextFence
-      ? `<figcaption class="code-frame__header code-frame__header--plain"><button class="code-frame__copy" type="button">Copy</button></figcaption>`
-      : `<figcaption class="code-frame__header"><span class="code-frame__language">${escapeHtml(
+      ? `<figcaption class="code-frame__header code-frame__header--plain"><div class="code-frame__meta"><span class="code-frame__eyebrow">${escapeHtml(
+          plainFencePresentation.label
+        )}</span>${
+          fenceTitle
+            ? `<span class="code-frame__caption">${escapeHtml(fenceTitle)}</span>`
+            : ""
+        }</div><button class="code-frame__copy" type="button">Copy</button></figcaption>`
+      : `<figcaption class="code-frame__header"><div class="code-frame__meta"><span class="code-frame__language">${escapeHtml(
           requestedLanguage
-        )}</span><button class="code-frame__copy" type="button">Copy</button></figcaption>`;
+        )}</span>${
+          fenceTitle
+            ? `<span class="code-frame__caption">${escapeHtml(fenceTitle)}</span>`
+            : ""
+        }</div><button class="code-frame__copy" type="button">Copy</button></figcaption>`;
 
     return `<figure class="code-frame" data-language="${escapeHtml(
       requestedLanguage
-    )}"${isPlainTextFence ? ' data-frame-kind="plain"' : ""}>${header}${highlighted}</figure>`;
+    )}"${
+      isPlainTextFence ? ` data-frame-kind="${plainFencePresentation.kind}"` : ""
+    }>${header}${highlighted}</figure>`;
   }) as RenderRule;
 
   markdown.renderer.rules.table_open = () => '<div class="table-scroll"><table>';
@@ -762,6 +782,69 @@ function wrapFigureCaptions(html: string): string {
       return `<figure class="article-figure">${media}<figcaption class="figure-caption">${caption}</figcaption></figure>`;
     }
   );
+}
+
+function inferPlainFencePresentation(input: string): {
+  kind: "plain" | "algorithm" | "pseudocode";
+  label: "Text" | "Algorithm" | "Pseudocode";
+} {
+  const normalizedLines = input
+    .replace(/\r\n?/gu, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (normalizedLines.length === 0) {
+    return {
+      kind: "plain",
+      label: "Text"
+    };
+  }
+
+  const firstLine = normalizedLines[0];
+  const firstLineUpper = firstLine.toUpperCase();
+  const fullTextUpper = normalizedLines.join("\n").toUpperCase();
+  const hasAlgorithmHeading = [
+    /^ALGORITHM\b/u,
+    /^PROCEDURE\b/u,
+    /^FUNCTION\b/u,
+    /^ROUTINE\b/u,
+    /^METHOD\b/u
+  ].some((pattern) => pattern.test(firstLineUpper));
+  const hasFormalSections =
+    /(?:^|\n)(?:INPUT|OUTPUT|REQUIRE|ENSURE|INITIALIZE|PARAMETERS|PRECONDITION|POSTCONDITION)\s*:/u.test(
+      fullTextUpper
+    );
+  const controlFlowSignals = normalizedLines.reduce((count, line) => {
+    if (
+      /^(?:\d+\.\s+)?(?:STEP\s+\d+|FOR EACH|FOR|WHILE|IF|ELSE IF|ELSE|UNTIL|REPEAT|RETURN|YIELD|BREAK|CONTINUE)\b/iu.test(
+        line
+      )
+    ) {
+      return count + 1;
+    }
+
+    return count;
+  }, 0);
+
+  if (hasAlgorithmHeading || hasFormalSections) {
+    return {
+      kind: "algorithm",
+      label: "Algorithm"
+    };
+  }
+
+  if (controlFlowSignals >= 2) {
+    return {
+      kind: "pseudocode",
+      label: "Pseudocode"
+    };
+  }
+
+  return {
+    kind: "plain",
+    label: "Text"
+  };
 }
 
 function polishArticleHtml(html: string): string {
