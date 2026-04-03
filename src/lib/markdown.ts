@@ -337,7 +337,14 @@ function sanitizeRenderedMathHtml(rendered: string): string {
   // backslash as a text node immediately before a closing tag, markdown treats
   // the backslash as escaping the `<` of that closing tag and leaks markup into
   // visible text. Encode those operator glyphs before injecting the fragment.
-  return rendered.replace(/>(\\+)(?=<\/)/gu, (_match, slashes: string) => {
+  const flattened = rendered
+    // Inline table cells cannot contain multiline raw HTML fragments. KaTeX
+    // emits SVG internals with line breaks, so normalize the fragment into a
+    // single safe line before markdown-it table parsing sees it.
+    .replace(/\r?\n+/gu, " ")
+    .replace(/>\s+</gu, "><");
+
+  return flattened.replace(/>(\\+)(?=<\/)/gu, (_match, slashes: string) => {
     return `>${"&#92;".repeat(slashes.length)}`;
   });
 }

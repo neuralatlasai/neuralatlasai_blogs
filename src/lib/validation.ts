@@ -97,7 +97,7 @@ export function validateRenderedHtml(outputFile: string, outputRoot: string, htm
     }
 
     const leakedMarkupPattern =
-      /(?:&lt;\/?(?:span|section|math|mrow|mtable|mtr|mtd|annotation)\b|data-label=|class=&quot;katex|katex-display)/gu;
+      /(?:&lt;\/?(?:span|section|math|mrow|mtable|mtr|mtd|annotation|svg|path)\b|data-label=|class=&quot;katex|katex-display)/gu;
     for (const match of segment.text.matchAll(leakedMarkupPattern)) {
       if (typeof match.index !== "number") {
         continue;
