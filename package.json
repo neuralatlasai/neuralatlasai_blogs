@@ -5,10 +5,10 @@
   "description": "Content-first technical report static site generator for GitHub Pages",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node.exe build/build.js",
-    "dev": "tsc -p tsconfig.json && node.exe build/dev.js",
+    "build": "tsc -p tsconfig.json && node build/build.js",
+    "dev": "tsc -p tsconfig.json && node build/dev.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "serve": "npm run build && node.exe build/preview.js"
+    "serve": "npm run build && node build/preview.js"
   },
   "engines": {
     "node": ">=24.0.0",
