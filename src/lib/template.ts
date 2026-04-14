@@ -4,6 +4,21 @@ import { siteConfig } from "../site.config.js";
 import type { CollectionRecord, DocumentRecord } from "./models.js";
 import { escapeHtml, relativeHref } from "./utils.js";
 
+/* ============================================================================
+ * §1 — Shell: The root HTML document wrapper
+ * ============================================================================
+ *
+ * Emits the full <!DOCTYPE html> envelope including:
+ *   - Preconnected font origins & font stylesheet (display=swap for FOIT)
+ *   - Preloaded hero font weights for above-the-fold LCP
+ *   - Open Graph / SEO meta tags
+ *   - Theme color meta for mobile browser chrome
+ *   - Reading progress bar (article pages)
+ *   - Site header with brand mark + dark mode toggle
+ *   - Footer
+ *   - Deferred module scripts
+ * ========================================================================== */
+
 function renderShell(options: {
   title: string;
   description: string;
@@ -12,6 +27,7 @@ function renderShell(options: {
   bodyClass: string;
   content: string;
   scriptFile?: string;
+  showProgress?: boolean;
 }): string {
   const styleHref = relativeHref(options.outputFile, path.join(options.outputRoot, "assets/site.css"));
   const katexHref = relativeHref(
@@ -23,6 +39,8 @@ function renderShell(options: {
     options.title === siteConfig.title
       ? escapeHtml(siteConfig.title)
       : `${escapeHtml(options.title)} | ${escapeHtml(siteConfig.title)}`;
+  const logoHref = relativeHref(options.outputFile, path.join(options.outputRoot, "assets/271766279.png"));
+  const homeHref = relativeHref(options.outputFile, path.join(options.outputRoot, "index.html"));
 
   return `<!DOCTYPE html>
 <html lang="${siteConfig.language}">
@@ -30,26 +48,73 @@ function renderShell(options: {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="${escapeHtml(options.description)}" />
+    <meta name="author" content="${escapeHtml(siteConfig.author)}" />
+    <meta name="theme-color" content="#f4eed6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e0d0b" media="(prefers-color-scheme: dark)" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="${pageTitle}" />
+    <meta property="og:description" content="${escapeHtml(options.description)}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="${escapeHtml(siteConfig.title)}" />
+
     <title>${pageTitle}</title>
+
+    <!-- Fonts: preconnect + display=swap for non-blocking load -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"
     />
+
     <link rel="stylesheet" href="${styleHref}" />
     <link rel="stylesheet" href="${katexHref}" />
+
+    <!-- Dark mode: apply saved preference before first paint to avoid FOUC -->
+    <script>
+      (function(){
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
   </head>
   <body class="${options.bodyClass}">
+    ${options.showProgress ? `<div class="reading-progress" aria-hidden="true"><div class="reading-progress__bar" id="reading-progress-bar"></div></div>` : ""}
+    <header class="site-header" id="site-header">
+      <div class="site-header__inner">
+        <a class="brand-mark" href="${homeHref}" aria-label="${escapeHtml(siteConfig.title)} archive">
+          <img class="brand-mark__logo" src="${logoHref}" alt="${escapeHtml(siteConfig.title)}" width="40" height="40" loading="eager" />
+          <span class="brand-mark__text">${escapeHtml(siteConfig.shortTitle)}</span>
+        </a>
+        <div class="site-header__actions">
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <svg class="theme-toggle__moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="theme-toggle__sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
     ${options.content}
+    <footer class="site-footer">
+      <p class="site-footer__text">${escapeHtml(siteConfig.footerNote)}</p>
+    </footer>
     ${
       scriptHref
-        ? `<script type="module" src="${scriptHref}"></script>`
+        ? `<script type="module" src="${scriptHref}" defer></script>`
         : ""
     }
   </body>
 </html>`;
 }
+
+/* ============================================================================
+ * §2 — Reusable Fragments
+ * ========================================================================== */
 
 function renderArchiveEntry(
   document: DocumentRecord,
@@ -67,16 +132,6 @@ function renderArchiveEntry(
     <span class="archive-entry__meta">${escapeHtml(metaParts.join(" · "))}</span>
   </a>
 </li>`;
-}
-
-function renderBrandMark(currentOutputFile: string, outputRoot: string): string {
-  const homeHref = relativeHref(currentOutputFile, path.join(outputRoot, "index.html"));
-  const logoHref = relativeHref(currentOutputFile, path.join(outputRoot, "assets/271766279.png"));
-
-  return `<a class="brand-mark" href="${homeHref}" aria-label="${escapeHtml(siteConfig.title)} archive">
-  <img class="brand-mark__logo" src="${logoHref}" alt="${escapeHtml(siteConfig.title)}" width="40" height="40" />
-  <span class="brand-mark__text">${escapeHtml(siteConfig.shortTitle)}</span>
-</a>`;
 }
 
 function renderResourceList(collection: CollectionRecord, currentOutputFile: string, outputRoot: string): string {
@@ -100,6 +155,10 @@ function renderResourceList(collection: CollectionRecord, currentOutputFile: str
 </section>`;
 }
 
+/* ============================================================================
+ * §3 — Document (Article) Page
+ * ========================================================================== */
+
 export function renderDocumentPage(options: {
   document: DocumentRecord;
   collection: CollectionRecord;
@@ -122,7 +181,6 @@ export function renderDocumentPage(options: {
   ];
 
   const content = `<main class="page-shell page-shell--article">
-  ${renderBrandMark(document.outputFile, outputRoot)}
   ${
     sectionHeadings.length > 0
       ? `<div class="current-section" data-current-section aria-hidden="true">
@@ -161,9 +219,14 @@ export function renderDocumentPage(options: {
     outputRoot,
     bodyClass: "page page--article",
     content,
-    scriptFile: path.join(outputRoot, "assets/article.js")
+    scriptFile: path.join(outputRoot, "assets/article.js"),
+    showProgress: true
   });
 }
+
+/* ============================================================================
+ * §4 — Collection Page
+ * ========================================================================== */
 
 export function renderCollectionPage(options: {
   collection: CollectionRecord;
@@ -178,7 +241,6 @@ export function renderCollectionPage(options: {
   ].filter((value): value is string => typeof value === "string");
 
   const content = `<main class="page-shell page-shell--collection">
-  ${renderBrandMark(collection.outputFile, outputRoot)}
   <section class="archive-panel">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="${homeHref}">Archive</a>
@@ -209,6 +271,10 @@ export function renderCollectionPage(options: {
   });
 }
 
+/* ============================================================================
+ * §5 — Home / Archive Index Page
+ * ========================================================================== */
+
 export function renderHomePage(options: {
   collections: CollectionRecord[];
   outputFile: string;
@@ -220,12 +286,11 @@ export function renderHomePage(options: {
   <section class="archive-index">
     <header class="archive-index__header">
       <div>
-        ${renderBrandMark(outputFile, outputRoot)}
         <h1>Technical Reports</h1>
       </div>
       <label class="archive-search">
         <span class="visually-hidden">Filter reports</span>
-        <input data-search-input type="search" placeholder="Filter reports" />
+        <input data-search-input type="search" placeholder="Filter reports…" id="search-input" />
       </label>
     </header>
     <div class="archive-groups">
@@ -270,11 +335,14 @@ export function renderHomePage(options: {
   });
 }
 
+/* ============================================================================
+ * §6 — 404 Page
+ * ========================================================================== */
+
 export function renderNotFoundPage(outputFile: string, outputRoot: string): string {
   const homeHref = relativeHref(outputFile, path.join(outputRoot, "index.html"));
   const content = `<main class="page-shell page-shell--not-found">
   <section class="not-found">
-    ${renderBrandMark(outputFile, outputRoot)}
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="${homeHref}">Archive</a>
     </nav>

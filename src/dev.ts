@@ -183,10 +183,27 @@ async function handleRequest(
     const stat = await fsp.stat(filePath).catch(() => null);
     const resolvedFile = stat?.isDirectory() ? path.join(filePath, "index.html") : filePath;
     const content = await fsp.readFile(resolvedFile);
-    response.writeHead(200, {
-      "content-type":
-        mimeTypes.get(path.extname(resolvedFile).toLowerCase()) ?? "application/octet-stream"
-    });
+    const ext = path.extname(resolvedFile).toLowerCase();
+    const contentType = mimeTypes.get(ext) ?? "application/octet-stream";
+
+    /* Cache strategy: HTML → no-cache (dev reload), assets → long-term cache */
+    const isStaticAsset = new Set([".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".woff2", ".pdf"]).has(ext);
+    const cacheControl = isStaticAsset
+      ? "public, max-age=31536000, immutable"
+      : "no-cache, no-store, must-revalidate";
+
+    const headers: Record<string, string> = {
+      "content-type": contentType,
+      "cache-control": cacheControl,
+      "x-content-type-options": "nosniff",
+    };
+
+    /* CORS for fonts */
+    if (ext === ".woff2") {
+      headers["access-control-allow-origin"] = "*";
+    }
+
+    response.writeHead(200, headers);
     response.end(content);
   } catch {
     try {
